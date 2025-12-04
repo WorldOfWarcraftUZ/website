@@ -1,83 +1,60 @@
-import { useState } from "react";
+import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "wouter";
+import { format } from "date-fns";
+import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
-import { CategoryBadge } from "@/components/category-badge";
-import { ArticleCard } from "@/components/article-card";
-import { ArticleDetailSkeleton } from "@/components/article-skeleton";
-import { SearchDialog } from "@/components/search-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  Calendar, 
-  Clock, 
-  ArrowLeft, 
-  Share2, 
-  Bookmark,
-  ChevronRight,
-  User
-} from "lucide-react";
-import { format } from "date-fns";
-import type { ArticleWithCategory, Category } from "@shared/schema";
+import { supabase } from "@/lib/supabase";
 
-export default function ArticleDetailPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const [searchOpen, setSearchOpen] = useState(false);
+export default function ArticleDetail() {
+  // URL dan slug ni olish (/article/:slug)
+  const [match, params] = useRoute("/article/:slug");
+  const slug = params?.slug;
 
-  // Fetch categories
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+  // Kategoriyalarni olish (Navigation uchun)
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('categories').select('*');
+      if (error) throw error;
+      return data;
+    },
   });
 
-  // Fetch all articles for search and related
-  const { data: allArticles = [] } = useQuery<ArticleWithCategory[]>({
-    queryKey: ["/api/articles"],
+  // Maqolani Supabasedan yuklash
+  const { data: article, isLoading, error } = useQuery({
+    queryKey: ["article", slug],
+    queryFn: async () => {
+      // Slug bo'yicha qidiramiz va kategoriyasi bilan birga olamiz
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*, category:categories(*)')
+        .eq('slug', slug)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!slug, // Slug bor bo'lsagina so'rov yuboriladi
   });
-
-  // Fetch specific article
-  const { data: article, isLoading } = useQuery<ArticleWithCategory>({
-    queryKey: ["/api/articles", slug],
-  });
-
-  // Get related articles (same category, excluding current)
-  const relatedArticles = allArticles
-    .filter(
-      (a) =>
-        a.id !== article?.id &&
-        a.category?.slug === article?.category?.slug &&
-        a.published
-    )
-    .slice(0, 3);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navigation categories={categories} onSearchClick={() => setSearchOpen(true)} />
-        <ArticleDetailSkeleton />
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!article) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Navigation categories={categories} onSearchClick={() => setSearchOpen(true)} />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center px-4">
-            <h1 className="font-serif text-4xl font-bold mb-4">
-              Maqola topilmadi
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              Siz qidirayotgan maqola mavjud emas yoki o'chirilgan.
-            </p>
-            <Link href="/">
-              <Button data-testid="button-back-home">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Bosh sahifaga qaytish
-              </Button>
-            </Link>
+      <div className="min-h-screen flex flex-col">
+        <Navigation categories={categories} />
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto animate-pulse space-y-8">
+            <div className="h-8 bg-muted rounded w-3/4" />
+            <div className="h-96 bg-muted rounded" />
+            <div className="space-y-4">
+              <div className="h-4 bg-muted rounded" />
+              <div className="h-4 bg-muted rounded" />
+              <div className="h-4 bg-muted rounded w-5/6" />
+            </div>
           </div>
         </main>
         <Footer />
@@ -85,145 +62,105 @@ export default function ArticleDetailPage() {
     );
   }
 
-  const readTime = Math.max(1, Math.ceil(article.content.split(/\s+/).length / 200));
-  const formattedDate = article.createdAt
-    ? format(new Date(article.createdAt), "dd MMMM, yyyy")
-    : "Yangi";
-
-  const defaultImage = "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1920&h=1080&fit=crop";
+  // Agar maqola topilmasa yoki xatolik bo'lsa
+  if (error || !article) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navigation categories={categories} />
+        <main className="flex-1 flex flex-col items-center justify-center p-4">
+          <h1 className="text-4xl font-bold font-serif mb-4">404</h1>
+          <p className="text-xl text-muted-foreground mb-8">Maqola topilmadi</p>
+          <Link href="/">
+            <Button>Bosh sahifaga qaytish</Button>
+          </Link>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Navigation categories={categories} onSearchClick={() => setSearchOpen(true)} />
+    <div className="min-h-screen flex flex-col bg-background">
+      <Navigation categories={categories} />
 
       <main className="flex-1">
-        {/* Hero Image */}
-        <div className="relative h-[50vh] min-h-[400px] overflow-hidden">
-          <img
-            src={article.featuredImage || defaultImage}
-            alt={article.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-        </div>
+        {/* Header Section */}
+        <header className="relative w-full h-[60vh] min-h-[400px] flex items-end">
+          {/* Background Image */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src={article.featured_image || "https://images.unsplash.com/photo-1518066000714-58c45f1a2c0a"}
+              alt={article.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          </div>
 
-        {/* Article Content */}
-        <article className="container mx-auto px-4 -mt-32 relative z-10">
-          <div className="max-w-4xl mx-auto">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6" data-testid="breadcrumb">
-              <Link href="/">
-                <span className="hover:text-accent cursor-pointer">Bosh sahifa</span>
-              </Link>
-              <ChevronRight className="h-4 w-4" />
+          <div className="container mx-auto px-4 pb-12 relative z-10">
+            <Link href="/">
+              <Button variant="ghost" className="mb-6 hover:bg-background/20 text-foreground">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Orqaga
+              </Button>
+            </Link>
+
+            <div className="max-w-4xl">
               {article.category && (
-                <>
-                  <Link href={`/category/${article.category.slug}`}>
-                    <span className="hover:text-accent cursor-pointer">{article.category.name}</span>
-                  </Link>
-                  <ChevronRight className="h-4 w-4" />
-                </>
+                <Badge className="mb-4 bg-primary text-primary-foreground hover:bg-primary/90">
+                  {article.category.name}
+                </Badge>
               )}
-              <span className="text-foreground line-clamp-1">{article.title}</span>
-            </nav>
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-serif mb-6 leading-tight">
+                {article.title}
+              </h1>
 
-            {/* Category Badge */}
-            {article.category && (
-              <div className="mb-4">
-                <CategoryBadge
-                  category={article.category.slug}
-                  color={article.category.color}
-                />
-              </div>
-            )}
+              <div className="flex flex-wrap items-center gap-6 text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">Admin</span>
+                </div>
 
-            {/* Title */}
-            <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight mb-6" data-testid="article-title">
-              {article.title}
-            </h1>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {format(new Date(article.created_at), "d MMMM, yyyy")}
+                  </span>
+                </div>
 
-            {/* Meta */}
-            <div className="flex flex-wrap items-center gap-6 pb-8 border-b border-border">
-              {/* Author */}
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback className="bg-accent text-accent-foreground">
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium" data-testid="article-author">{article.author || "Admin"}</p>
-                  <p className="text-sm text-muted-foreground">Muallif</p>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4" />
+                  <span>5 daqiqalik o'qish</span>
                 </div>
               </div>
-
-              {/* Date */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span data-testid="article-date">{formattedDate}</span>
-              </div>
-
-              {/* Read time */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>{readTime} daqiqa o'qish</span>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 ml-auto">
-                <Button variant="ghost" size="icon" aria-label="Share" data-testid="button-share">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" aria-label="Bookmark" data-testid="button-bookmark">
-                  <Bookmark className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Excerpt */}
-            <p className="text-xl text-muted-foreground leading-relaxed my-8 italic" data-testid="article-excerpt">
-              {article.excerpt}
-            </p>
-
-            {/* Content */}
-            <div 
-              className="prose-wow max-w-none"
-              dangerouslySetInnerHTML={{ __html: article.content }}
-              data-testid="article-content"
-            />
-
-            {/* Back button */}
-            <div className="mt-12 pt-8 border-t border-border">
-              <Link href="/">
-                <Button variant="outline" data-testid="button-back">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Barcha maqolalarga qaytish
-                </Button>
-              </Link>
             </div>
           </div>
-        </article>
+        </header>
 
-        {/* Related Articles */}
-        {relatedArticles.length > 0 && (
-          <section className="container mx-auto px-4 py-16 mt-8 border-t border-border">
-            <h2 className="font-serif text-3xl font-bold mb-8">O'xshash Maqolalar</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="related-articles">
-              {relatedArticles.map((relatedArticle) => (
-                <ArticleCard key={relatedArticle.id} article={relatedArticle} />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Content Section */}
+        <article className="container mx-auto px-4 py-12">
+          <div className="max-w-3xl mx-auto">
+            {article.excerpt && (
+              <p className="text-xl md:text-2xl text-muted-foreground mb-8 font-serif leading-relaxed italic border-l-4 border-primary pl-6">
+                {article.excerpt}
+              </p>
+            )}
+
+            <Separator className="my-8" />
+
+            <div 
+              className="prose prose-lg dark:prose-invert max-w-none prose-img:rounded-xl prose-headings:font-serif"
+              dangerouslySetInnerHTML={{ __html: article.content }} 
+            />
+          </div>
+        </article>
       </main>
 
       <Footer />
-
-      <SearchDialog
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        articles={allArticles}
-      />
     </div>
   );
 }

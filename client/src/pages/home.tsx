@@ -8,30 +8,55 @@ import { SearchDialog } from "@/components/search-dialog";
 import { Footer } from "@/components/footer";
 import { ArticleCardSkeleton } from "@/components/article-skeleton";
 import type { ArticleWithCategory, Category } from "@shared/schema";
+import { supabase } from "@/lib/supabase";
 
 export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Fetch categories
+  // Kategoriyalarni Supabasedan olish
   const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*');
+      
+      if (error) {
+        console.error("Kategoriyalarni olishda xatolik:", error);
+        throw error;
+      }
+      return data as Category[];
+    },
   });
 
-  // Fetch articles
+  // Maqolalarni Supabasedan olish
   const { data: articles = [], isLoading: isLoadingArticles } = useQuery<ArticleWithCategory[]>({
-    queryKey: ["/api/articles"],
+    queryKey: ["articles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*, category:categories(*)')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Maqolalarni olishda xatolik:", error);
+        throw error;
+      }
+      return data as unknown as ArticleWithCategory[];
+    },
   });
 
-  // Filter articles by category
+  // Filtrlash logikasi
   const filteredArticles = useMemo(() => {
     if (!selectedCategory) return articles;
     return articles.filter((article) => article.category?.slug === selectedCategory);
   }, [articles, selectedCategory]);
 
-  // Get featured articles (first 3 published)
+  // Tanlangan maqolalar (published bo'lganlar)
   const featuredArticles = useMemo(() => {
-    return articles.filter(a => a.published).slice(0, 3);
+    // Agar bazada 'published' ustuni bo'lmasa, barchasini chiqaradi
+    return articles.filter(a => a.published !== false).slice(0, 3);
   }, [articles]);
 
   return (
