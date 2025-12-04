@@ -6,12 +6,11 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: ".5625rem",
+        md: ".375rem",
+        sm: ".1875rem",
       },
       colors: {
-        // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
@@ -73,7 +72,15 @@ export default {
         "sidebar-accent": {
           DEFAULT: "hsl(var(--sidebar-accent) / <alpha-value>)",
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "var(--sidebar-accent-border)"
+          border: "var(--sidebar-accent-border)",
+        },
+        wow: {
+          gold: "hsl(var(--wow-gold) / <alpha-value>)",
+          "gold-light": "hsl(var(--wow-gold-light) / <alpha-value>)",
+          "gold-dark": "hsl(var(--wow-gold-dark) / <alpha-value>)",
+          blue: "hsl(var(--wow-blue) / <alpha-value>)",
+          "blue-light": "hsl(var(--wow-blue-light) / <alpha-value>)",
+          "blue-dark": "hsl(var(--wow-blue-dark) / <alpha-value>)",
         },
         status: {
           online: "rgb(34 197 94)",
@@ -96,10 +103,28 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        glow: {
+          "0%, 100%": { boxShadow: "0 0 15px rgba(180, 140, 80, 0.3)" },
+          "50%": { boxShadow: "0 0 25px rgba(180, 140, 80, 0.5)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.3s ease-out",
+        shimmer: "shimmer 2s infinite linear",
+        glow: "glow 2s infinite ease-in-out",
+      },
+      backgroundImage: {
+        shimmer: "linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)",
       },
     },
   },
